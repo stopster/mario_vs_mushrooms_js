@@ -1,2 +1,2 @@
-mario_vs_mushrooms_js
+Game Mario vs. Mushrooms
 =====================
