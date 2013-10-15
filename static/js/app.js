@@ -1,15 +1,29 @@
 (function (d, w){
 	function Game(){
-		console.log("init game");
+		var self = this;
+		var running = false;
 
 		this.canvas = new GameCanv();
+		this.player = new Player(this.canvas);
 
 		this.start = function(){
-			console.log("start game");
+			running = true;
+			var start = 0;
+			var delay = 30; // 30 miliseconds between
+			window.requestAnimationFrame(function gameLoop(time){
+				if((time - start) > delay){
+					start = time;
+					self.canvas.update();
+				}
+				
+				if(running){
+					window.requestAnimationFrame(gameLoop);
+				}
+			});
 		};
 
 		this.stop = function(){
-			console.log("stop game");
+			running = false;
 		};
 	}
 
@@ -31,7 +45,12 @@
 			delete layers[index];
 		};
 
+		this.clear = function (){
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+		};
+
 		this.update = function(){
+			this.clear();
 			for(var i = 0, ii = layers.length, layer = layers[i]; i<ii; layer = layers[i++]){
 				if(layer === undefined){
 					continue;
@@ -45,23 +64,53 @@
 	function CanvObj(gameCanv){
 		console.log("init canvas object");
 
-		var x, y, index;
+		var x, y, index=0;
 		this.canvas = gameCanv;
 		this.ctx = gameCanv.getCtx();
 
-		gameCanv.addLayer(0, this);
+		gameCanv.addLayer(index, this);
 
 		this.update = function(){
 			console.log("update canv object");
 		};
-
+		this.clear = function(){
+			this.ctx.clearRect(this.x, this.y, this.width, this.height);
+		};
 		this.remove = function(){
 			this.canvas.removeLayer(index);
 		};
 	}
 
-	function Player(){
+	function Player(gameCanv){
 		console.log("init player");
+		var self = this;
+
+		CanvObj.call(this, gameCanv);
+		this.x = 0;
+		this.y = 0;
+		this.width = 10;
+		this.height = 10;
+
+		d.addEventListener("keydown", function(e){
+			switch(e.keyCode){
+				case 37:
+					self.x -=5;
+					break;
+				case 38:
+					self.y -=5;
+					break;
+				case 39:
+					self.x +=5;
+					break;
+				case 40:
+					self.y +=5;
+					break;
+			}
+		});
+		this.update = function(){
+			this.ctx.fillStyle = "black";
+			this.ctx.fillRect(this.x, this.y, this.width, this.height);
+		};
 	}
 
 	function Mob(){
