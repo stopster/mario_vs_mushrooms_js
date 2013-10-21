@@ -1,13 +1,8 @@
 (function (d, w){
 	var utils = {
 		typeOf: function(object){
-			var strings = {
-				"[object Array]": "array",
-				"[object Object]": "object",
-				"[object String]": "string"
-			};
-
-			return strings[Object.prototype.toString.call(object)];
+			var str = Object.prototype.toString.call(object);
+			return str.match(/\[object\s(\w+)/)[1].toLowerCase();
 		}
 	};
 
@@ -18,6 +13,7 @@
 		this.canvas = new GameCanv();
 		this.controls = new GameControls();
 		this.player = new Player(this.canvas, this.controls);
+		var level = new GameLevel(1, this.canvas);
 
 		this.start = function(){
 			running = true;
@@ -40,12 +36,129 @@
 		};
 	}
 
-	function GameCanv(){
-		console.log("init canvas");
+	function GameLevel(difficulty, gameCanv){
+		var objects = [{
+			x: -20,
+			y: 0,
+			width: 20,
+			height: gameCanv.height,
+			color: "grey"
+		}, {
+			x: gameCanv.width,
+			y: 0,
+			width: 20,
+			height: gameCanv.height,
+			color: "grey"
+		}, {
+			x: 200,
+			y: 260,
+			width: 200,
+			height: 10,
+			color: "grey"
+		}, {
+			x: 0,
+			y: gameCanv.height - 100,
+			width: gameCanv.width,
+			height: 100,
+			color: "black"
+		}];
 
+		this.objects = [];
+
+		var startIndex = 1;
+		
+		for(var i=0, ii=objects.length; i<ii; i++){
+			var obj= objects[i];
+			this.objects[i] = new Wall(gameCanv, obj.x, obj.y, obj.width, obj.height, startIndex + i);
+		}
+	}
+
+	function CollisionMgr(){
+		var objects = [];
+		var abs = Math.abs;
+		var delta = 15;
+		var oppositeDirs = {
+			"left": "right",
+			"top": "bottom",
+			"bottom": "top",
+			"right": "left"
+		};
+
+		this.addObject = function(index, canvObj){
+			objects[index] = canvObj;
+		};
+
+		this.removeObject = function(){
+			delete objects[index];
+		};
+
+		this.checkCollision = function(obj1, obj2){
+			var b1 = obj1.getBoundaries();
+			var b2 = obj2.getBoundaries();
+			var dir = null,
+				dx = 0,
+				dy = 0;
+
+			if(b1.left>b2.right||b1.right<b2.left||b1.top>b2.bottom||b1.bottom<b2.top){
+				return;
+			}
+
+			if(b1.left - b2.left>0){
+				dx = b1.left - b2.right;
+				if(abs(dx) <= delta){
+					dir = "left";
+				}
+			} else{
+				dx = b1.right - b2.left;
+				if(abs(dx) <= delta){
+					dir = "right";
+				}
+			}
+
+			if(b1.top - b2.top > 0){
+				dy = b1.top - b2.bottom;
+				if(abs(dy) <= delta){
+					dir = "top";
+				}
+			} else{
+				dy = b2.top - b1.bottom;
+				if(abs(dy) <= delta){
+					dir = "bottom";
+				}
+			}
+			// By doing ~~ we getting Math.floor();
+			obj1.collideWith(obj2, dir, dx, dy);
+			// By doing ~x + 1 we get -1*Math.floor() + 1;
+			obj2.collideWith(obj1, oppositeDirs[dir], -dx, -dy);
+		};
+		this.checkAllCollisions = function(){
+			var toCheckLength = objects.length;
+			if(toCheckLength < 2){
+				return;
+			}
+
+			for(var i=0, ii = objects.length; i<ii; i++){
+				var obj1 = objects[i];
+				if(obj1 === undefined){
+					continue;
+				}
+				for(var j=i+1; j<toCheckLength; j++){
+					var obj2 = objects[j];
+					if(obj2 === undefined){
+						continue;
+					}
+					this.checkCollision(obj1, obj2);
+				}
+			}
+		};
+	}
+
+	function GameCanv(){
 		var layers = [];
 		var canvas = d.getElementById("canvas");
 		var ctx = canvas.getContext("2d");
+
+		var collisionMgr = new CollisionMgr();
 
 		this.height = canvas.height;
 		this.width = canvas.width;
@@ -53,12 +166,16 @@
 		this.getCtx = function(){
 			return ctx;
 		};
-		this.addLayer = function(index, canvObj){
+		this.addLayer = function(index, canvObj, isCollidable){
 			layers[index] = canvObj;
+			if(isCollidable){
+				collisionMgr.addObject(index, canvObj);
+			}
 		};
 
 		this.removeLayer = function(index){
 			delete layers[index];
+			collisionMgr.removeObject(index);
 		};
 
 		this.clear = function (){
@@ -67,31 +184,23 @@
 
 		this.update = function(){
 			this.clear();
-			for(var i = 0, ii = layers.length, layer = layers[i]; i<ii; layer = layers[i++]){
+
+			collisionMgr.checkAllCollisions();
+
+			for(var i = 0, ii = layers.length; i<ii; i++){
+				var layer = layers[i];
 				if(layer === undefined){
 					continue;
 				}
-
 				layer.update(canvas, ctx);
 			}
-
-			ctx.moveTo(0, 300);
-			ctx.lineTo(canvas.width, 300);
-			ctx.stroke();
 		};
+
 	}
 
 	function CanvObj(gameCanv){
-		console.log("init canvas object");
-
-		var x, y, width, height, index=0;
-		this.canvas = gameCanv;
-		this.ctx = gameCanv.getCtx();
-
-		gameCanv.addLayer(index, this);
-
 		this.update = function(){
-			console.log("update canv object");
+			// DO nothing
 		};
 		this.clear = function(){
 			this.ctx.clearRect(this.x, this.y, this.width, this.height);
@@ -99,24 +208,45 @@
 		this.remove = function(){
 			this.canvas.removeLayer(index);
 		};
+		this.collideWith = function(object, dir){
+			// do nothing
+		};
+		this.getBoundaries = function(){
+			return {
+				left: this.x,
+				top: this.y,
+				right: this.x + this.width,
+				bottom: this.y + this.height
+			};
+		};
 	}
+
+	Player.prototype = new CanvObj();
 
 	function Player(gameCanv, controls){
 		var self = this;
-
-		CanvObj.call(this, gameCanv);
+		var abs = Math.abs;
+		this.canvas = gameCanv;
+		this.ctx = gameCanv.getCtx();
 		this.controls = controls;
-		this.x = 0;
-		this.y = 0;
+
+		this.x = 20;
+		this.y = 100;
+		this.index = 10;
+
+		gameCanv.addLayer(this.index, this, true);
+
 		this.width = 10;
 		this.height = 10;
+
 		this.runDir = 0;
-		this.grounded = true;
+		this.grounded = false;
 		this.speed = 5;
-		this.jumpImpulse = 1;
+		this.jumpImpulse = 1.8;
+		this.currentJump = 0;
 		this.gravity = 0.1;
-		this.groundLevel = this.canvas.height - this.height - 140;
-		this.y = this.groundLevel - this.height;
+		this.groundLevel = 400;
+		this.barriers = { left: null, top: null, right: null, bottom: null };
 
 		this.controls.addListener(["left", "right"], function(key, action){
 			if(action === "keydown"){
@@ -141,22 +271,45 @@
 		};
 
 		this.jump = function(){
+			if(this.grounded){
+				this.currentJump = -this.jumpImpulse;
+			}
 			this.grounded = false;
 		};
 
 		this.update = function(){
-			this.x += this.runDir*this.speed;
+			var dx = this.runDir*this.speed;
+			this.x += (dx > 0)?
+				(this.barriers.right === null? dx: 0):
+				(this.barriers.left === null? dx: 0);
+			this.grounded = this.barriers.bottom !== null? this.grounded: false;	
 			if(!this.grounded){
-				this.jumpImpulse -= this.gravity;
-				this.y -= this.jumpImpulse*this.speed;
-				if(this.y >= this.groundLevel - this.height){
-					this.grounded = true;
-					this.jumpImpulse = 2;
+				var dy = this.currentJump*this.speed;
+				if(dy < 0){
+					if(this.barriers.top !== null){
+						this.currentJump = -this.currentJump;
+					}
+					this.currentJump += this.gravity;
+				} else if(dy >= 0){
+					if(this.barriers.bottom !== null){
+						this.grounded = true;
+						this.currentJump = 0;
+					} else{
+						this.currentJump += this.gravity;
+					}
 				}
-				
+				dy = this.currentJump*this.speed;
+				this.y += dy;
 			}
 
 			this.draw();
+			this.barriers = { left: null, top: null, right: null, bottom: null };
+		};
+
+		this.collideWith = function(obj, dir, dx, dy){
+			this.barriers[dir] = obj;
+			this.x -= (dir === "left" || dir === "right")? dx: 0;
+			this.y -= (dir === "top" || dir === "bottom")? dy: 0;
 		};
 
 		this.draw = function(){
@@ -169,9 +322,32 @@
 		console.log("init mob");
 	}
 
-	function Timer(){
-		console.log("init timer");
+	Wall.prototype = new CanvObj();
 
+	function Wall(gameCanv, x, y, width, height, index){
+		this.color = "red";
+
+		this.x = x;
+		this.y = y;
+		this.width = width;
+		this.height = height;
+
+		this.canvas = gameCanv;
+		this.ctx = gameCanv.getCtx();
+
+		this.canvas.addLayer(index, this, true);
+
+		this.update = function(canvas, ctx){
+			this.draw(canvas, ctx);
+		};
+
+		this.draw = function(canvas, ctx){
+			ctx.fillStyle = this.color;
+			ctx.fillRect(x, y, width, height);
+		};
+	}
+
+	function Timer(){
 		var currentTime = 0; // in seconds, e.g. 2.5 - 2 and half seconds
 		var running = false;
 
@@ -219,7 +395,6 @@
 		}
 
 		this.addListener = function(keys, callback){
-			console.log(keys);
 			var keysToAdd = utils.typeOf(keys) === "array"? keys: [keys];
 			for(var i=0, ii=keys.length; i<ii; i++){
 				if(this.listeners[keys[i]] !== undefined){
@@ -244,12 +419,15 @@
 		d.addEventListener("keyup", function(e){
 			self.trigger(keys[e.keyCode], "keyup");
 		});
-		console.log("init controls");
 	}
 
 	w.onload = function(){
 		var game = new Game();
 		game.start();
+
+		// setTimeout(function(){
+		// 	game.stop();
+		// }, 1000);
 	};
 
 })(document, window);
