@@ -36,7 +36,7 @@
 		};
 	}
 
-	function GameLevel(difficulty, gameCanv){
+	function GameLevel(lvl, gameCanv){
 		var objects = [{
 			x: -20,
 			y: 0,
@@ -48,12 +48,6 @@
 			y: 0,
 			width: 20,
 			height: gameCanv.height,
-			color: "grey"
-		}, {
-			x: 200,
-			y: 260,
-			width: 200,
-			height: 10,
 			color: "grey"
 		}, {
 			x: 0,
@@ -71,6 +65,35 @@
 			var obj= objects[i];
 			this.objects[i] = new Wall(gameCanv, obj.x, obj.y, obj.width, obj.height, startIndex + i);
 		}
+
+		var mobMgr = new MobMgr(lvl, gameCanv, gameCanv.height - 100);
+		mobMgr.start();
+	}
+
+	function MobMgr(lvl, canvas, groundLevel){
+		var self = this;
+		var qty = lvl * 3;
+		var timer;
+		var mobStartIndex = 20;
+
+		var canvasWidth = canvas.height;
+
+		function generateMobs(qty){
+			for(var i=0; i<qty; i++){
+				var mob = new Mob(canvas, canvasWidth*Math.random(), groundLevel - 20, mobStartIndex++);
+			}
+		}
+
+		this.start = function(){
+			generateMobs(qty);
+			timer = setInterval(function(){
+				generateMobs(qty);
+			}, 5000);
+		};
+
+		this.stop = function(){
+			clearInterval(timer);
+		};
 	}
 
 	function CollisionMgr(){
@@ -88,7 +111,7 @@
 			objects[index] = canvObj;
 		};
 
-		this.removeObject = function(){
+		this.removeObject = function(index){
 			delete objects[index];
 		};
 
@@ -277,6 +300,17 @@
 			this.grounded = false;
 		};
 
+		this.attack = function(damage){
+			if(damage>=10){
+				this.die();
+			}
+		};
+
+		this.die = function(){
+			gameCanv.removeLayer(self.index);
+			alert("you lost!");
+		};
+
 		this.update = function(){
 			var dx = this.runDir*this.speed;
 			this.x += (dx > 0)?
@@ -318,8 +352,56 @@
 		};
 	}
 
-	function Mob(){
-		console.log("init mob");
+	Mob.prototype = new CanvObj();
+
+	function Mob(gameCanv, x, y, index){
+		this.x = x;
+		this.y = y;
+		this.index = index;
+		this.width = 15;
+		this.height = 20;
+		this.speed =1;
+		this.color = "green";
+		this.damage = 10;
+
+		this.barriers = {top: null, bottom: null, left: null, right: null};
+
+		this.runDir = Math.random()>0.5? +1: -1;
+
+		gameCanv.addLayer(this.index, this, true);
+
+		this.collideWith = function(obj, dir, dx, dy){
+			if(obj instanceof Player){
+				if(dir === "top"){
+					this.die();
+				} else{
+					console.log("hit player");
+					obj.attack(this.damage);
+				}
+			}
+			this.barriers[dir] = obj;
+		};
+
+		this.update = function(canvas, ctx){
+			var dx = this.runDir*this.speed;
+			if(dx > 0 && this.barriers.right !== null){
+				this.runDir = -1;
+			} else if(dx < 0 && this.barriers.left !== null){
+				this.runDir = +1;
+			}
+			this.x += this.runDir*this.speed;
+			this.draw(ctx);
+			this.barriers = {top: null, bottom: null, left: null, right: null};
+		};
+
+		this.draw = function(ctx){
+			ctx.fillStyle = this.color;
+			ctx.fillRect(this.x, this.y, this.width, this.height);
+		};
+
+		this.die = function(){
+			gameCanv.removeLayer(this.index);
+		};
 	}
 
 	Wall.prototype = new CanvObj();
@@ -424,10 +506,6 @@
 	w.onload = function(){
 		var game = new Game();
 		game.start();
-
-		// setTimeout(function(){
-		// 	game.stop();
-		// }, 1000);
 	};
 
 })(document, window);
