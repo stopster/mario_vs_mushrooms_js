@@ -14,8 +14,19 @@
 		this.controls = new GameControls();
 		this.player = new Player(this.canvas, this.controls);
 		var level = new GameLevel(1, this.canvas);
+		this.timer = new Timer();
+
+		PubSub.subscribe("player died", function(data){
+			self.endGame();
+		});
 
 		this.start = function(){
+			// Dont allow the game to add another callback for requestAnimationFrame
+			if(running){
+				return;
+			}
+			level.start();
+			self.timer.start();
 			running = true;
 			var start = 0;
 			var delay = 10; // 30 miliseconds between
@@ -33,10 +44,34 @@
 
 		this.stop = function(){
 			running = false;
+			level.stop();
+			self.timer.stop();
+		};
+
+		var drawEndGame = function(){
+			var textLayer = new CanvObj();
+			textLayer.canvas = self.canvas;
+			textLayer.ctx = self.canvas.getCtx();
+			textLayer.update = function(){
+				this.ctx.font = "40px Arial sans-serif";
+				this.ctx.fillStyle = "red";
+				this.ctx.fillText("Game over!", (this.canvas.width - 160)/2, (this.canvas.height - 20)/2);
+			};
+			self.canvas.addLayer(0, textLayer);
+		};
+
+		this.endGame = function(){
+			level.stop();
+			self.timer.stop();
+
+			self.canvas.removeAll();
+			drawEndGame();
+			running = false;
 		};
 	}
 
 	function GameLevel(lvl, gameCanv){
+		var running;
 		var objects = [{
 			x: -20,
 			y: 0,
@@ -67,12 +102,25 @@
 		}
 
 		var mobMgr = new MobMgr(lvl, gameCanv, gameCanv.height - 100);
-		mobMgr.start();
+
+		this.start = function(){
+			if(running){
+				return;
+			}
+			mobMgr.start();
+			running = true;
+		};
+
+		this.stop = function(){
+			mobMgr.stop();
+			running = false;
+		};
 	}
 
 	function MobMgr(lvl, canvas, groundLevel){
 		var self = this;
 		var qty = lvl * 3;
+		var interval = 5/lvl * 1000; // In seconds
 		var timer;
 		var mobStartIndex = 20;
 
@@ -85,10 +133,9 @@
 		}
 
 		this.start = function(){
-			generateMobs(qty);
 			timer = setInterval(function(){
 				generateMobs(qty);
-			}, 5000);
+			}, interval);
 		};
 
 		this.stop = function(){
@@ -193,6 +240,12 @@
 			layers[index] = canvObj;
 			if(isCollidable){
 				collisionMgr.addObject(index, canvObj);
+			}
+		};
+
+		this.removeAll = function(){
+			for(var i=0, ii = layers.length; i<ii; i++){
+				this.removeLayer(i);
 			}
 		};
 
@@ -308,7 +361,7 @@
 
 		this.die = function(){
 			gameCanv.removeLayer(self.index);
-			alert("you lost!");
+			PubSub.publish("player died");
 		};
 
 		this.update = function(){
@@ -432,17 +485,23 @@
 	function Timer(){
 		var currentTime = 0; // in seconds, e.g. 2.5 - 2 and half seconds
 		var running = false;
+		var timerWrapper = d.getElementById("timer-wrapper");
+
+		var updateTimer = function(time){
+			var strTime = ("" + time.toFixed(2)).replace(".", ":");
+			timerWrapper.innerHTML = "<span>" + strTime+ "</span>";
+		};
 
 		this.getTime = function(){
 			return currentTime;
 		};
 
 		this.start = function(){
-			console.log("start timer");
 			running = true;
 			var timer = setInterval(function (){
 				if(running){
 					currentTime += 0.1;  // increase by 1/10 of a second
+					updateTimer(currentTime);
 				} else{
 					clearInterval(timer);
 				}
@@ -450,7 +509,6 @@
 		};
 
 		this.stop = function(){
-			console.log("stop timer");
 			running = false;
 		};
 
@@ -504,8 +562,23 @@
 	}
 
 	w.onload = function(){
-		var game = new Game();
-		game.start();
+		var game;
+		var btnStart = d.getElementById("start-game");
+		var btnStop = d.getElementById("stop-game");
+		var btnNewGame = d.getElementById("new-game");
+
+		btnStart.addEventListener("click", function(){
+			game.start();
+		});
+
+		btnStop.addEventListener("click", function(){
+			game.stop();
+		});
+
+		btnNewGame.addEventListener("click", function(){
+			game = new Game();
+			game.start();
+		});
 	};
 
 })(document, window);

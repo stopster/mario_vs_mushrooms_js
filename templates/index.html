@@ -10,9 +10,15 @@
 	</head>
 	<body>
 		<h2>My Super Mario</h2>
+		<button id="new-game">New game</button>
+		<button id="start-game">Resume</button>
+		<button id="stop-game">Pause</button>
+		<div id="timer-wrapper"><span>0:00</span></div>
+		<div class="message" id="game-message"></div>
 		<section class="game-field-wrapper">
 			<canvas id="canvas" class="game-field" width="600" height="450"></canvas>
 		</section>
+		<script type="text/javascript" src="{{STATIC_URL}}js/pubsub.js"></script>	
 		<script type="text/javascript" src="{{STATIC_URL}}js/app.js?Version=dummy"></script>	
 	</body>
 </html>
