@@ -89,7 +89,8 @@
 			y: gameCanv.height - 100,
 			width: gameCanv.width,
 			height: 100,
-			color: "black"
+			color: "black",
+			img: d.getElementById("grass-sample")
 		}];
 
 		this.objects = [];
@@ -98,7 +99,7 @@
 		
 		for(var i=0, ii=objects.length; i<ii; i++){
 			var obj= objects[i];
-			this.objects[i] = new Wall(gameCanv, obj.x, obj.y, obj.width, obj.height, startIndex + i);
+			this.objects[i] = new Wall(gameCanv, obj.x, obj.y, obj.width, obj.height, startIndex + i, obj.img);
 		}
 
 		var mobMgr = new MobMgr(lvl, gameCanv, gameCanv.height - 100);
@@ -128,7 +129,7 @@
 
 		function generateMobs(qty){
 			for(var i=0; i<qty; i++){
-				var mob = new Mob(canvas, canvasWidth*Math.random(), groundLevel - 20, mobStartIndex++);
+				var mob = new Mob(canvas, canvasWidth*Math.random(), groundLevel - 50, mobStartIndex++);
 			}
 		}
 
@@ -312,13 +313,15 @@
 
 		gameCanv.addLayer(this.index, this, true);
 
-		this.width = 10;
-		this.height = 10;
+		this.width = 38;
+		this.height = 50;
+		this.imgLeft = d.getElementById("mario-left");
+		this.imgRight = d.getElementById("mario-right");
 
 		this.runDir = 0;
 		this.grounded = false;
-		this.speed = 5;
-		this.jumpImpulse = 1.8;
+		this.speed = 6;
+		this.jumpImpulse = 2.3;
 		this.currentJump = 0;
 		this.gravity = 0.1;
 		this.groundLevel = 400;
@@ -339,10 +342,16 @@
 		});
 
 		this.run = function(dir){
+			if(!this.grounded){
+				return;
+			}
 			this.runDir = (dir === "left")? -1: +1;
 		};
 
 		this.stop = function(){
+			if(!this.grounded){
+				return;
+			}
 			this.runDir = 0;
 		};
 
@@ -399,9 +408,16 @@
 			this.y -= (dir === "top" || dir === "bottom")? dy: 0;
 		};
 
+		var lastLook = this.imgRight;
 		this.draw = function(){
-			this.ctx.fillStyle = "black";
-			this.ctx.fillRect(this.x, this.y, this.width, this.height);
+			var img;
+			if(this.runDir === 0){
+				img = lastLook;
+			} else{
+				img = this.runDir > 0? this.imgRight: this.imgLeft;
+			}
+			lastLook = img;
+			this.ctx.drawImage(img, this.x, this.y);
 		};
 	}
 
@@ -411,10 +427,10 @@
 		this.x = x;
 		this.y = y;
 		this.index = index;
-		this.width = 15;
-		this.height = 20;
+		this.width = 50;
+		this.height = 50;
 		this.speed =1;
-		this.color = "green";
+		this.img = d.getElementById("zombie");
 		this.damage = 10;
 
 		this.barriers = {top: null, bottom: null, left: null, right: null};
@@ -448,8 +464,7 @@
 		};
 
 		this.draw = function(ctx){
-			ctx.fillStyle = this.color;
-			ctx.fillRect(this.x, this.y, this.width, this.height);
+			ctx.drawImage(this.img, this.x, this.y);
 		};
 
 		this.die = function(){
@@ -459,7 +474,7 @@
 
 	Wall.prototype = new CanvObj();
 
-	function Wall(gameCanv, x, y, width, height, index){
+	function Wall(gameCanv, x, y, width, height, index, img){
 		this.color = "red";
 
 		this.x = x;
@@ -476,10 +491,23 @@
 			this.draw(canvas, ctx);
 		};
 
-		this.draw = function(canvas, ctx){
-			ctx.fillStyle = this.color;
-			ctx.fillRect(x, y, width, height);
-		};
+		this.draw = function(){
+			if(img){
+				return function(canvas, ctx){
+					if(img.width < width){
+						var ii = Math.ceil(width/img.width);
+						for(var i=0; i<ii; i++){
+							ctx.drawImage(img, x + i*img.width, y);
+						}
+					}
+				};
+			} else{
+				return function(canvas, ctx){
+					ctx.fillStyle = this.color;
+					ctx.fillRect(x, y, width, height);
+				};
+			}
+		}();
 	}
 
 	function Timer(){
