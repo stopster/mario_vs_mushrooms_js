@@ -6,6 +6,11 @@
 		}
 	};
 
+	function AudioOut(){
+		window.AudioContext = window.AudioContext || window.webkitAudioContext;
+		this.ctx = new AudioContext();
+	}
+
 	function Game(){
 		var self = this;
 		var running = false;
@@ -15,6 +20,8 @@
 		this.player = new Player(this.canvas, this.controls);
 		var level = new GameLevel(1, this.canvas);
 		this.timer = new Timer();
+		this.audio = new AudioOut();
+
 
 		PubSub.subscribe("player died", function(data){
 			self.endGame();
@@ -324,7 +331,6 @@
 		this.jumpImpulse = 2.3;
 		this.currentJump = 0;
 		this.gravity = 0.1;
-		this.groundLevel = 400;
 		this.barriers = { left: null, top: null, right: null, bottom: null };
 
 		this.controls.addListener(["left", "right"], function(key, action){
@@ -342,16 +348,10 @@
 		});
 
 		this.run = function(dir){
-			if(!this.grounded){
-				return;
-			}
 			this.runDir = (dir === "left")? -1: +1;
 		};
 
 		this.stop = function(){
-			if(!this.grounded){
-				return;
-			}
 			this.runDir = 0;
 		};
 
