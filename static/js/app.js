@@ -6,21 +6,77 @@
 		}
 	};
 
-	function AudioOut(){
+	function AudioOut(onload){
 		window.AudioContext = window.AudioContext || window.webkitAudioContext;
 		this.ctx = new AudioContext();
+		this.mainUrl = "/static/sounds/";
+		this.sounds = {
+			"player jumps": { file: "mario_jump.wav"},
+			"player dies": { file: "mario_die.wav" },
+			"mob dies": { file: "enemy_dies.wav" },
+			"theme": {file: "theme.wav" }
+		};
+
+		var self = this;
+		var soundQty = 0;
+		var checkLoaded = function(){
+			soundQty--;
+			if(soundQty <= 0){
+				onload instanceof Function && onload(self);
+			}
+		};
+
+		for(var key in this.sounds){
+			var sound = this.sounds[key];
+			soundQty += 1;
+			this.loadSound(this.mainUrl + sound.file, function(key){
+				return function(buffer){
+					self.sounds[key].audio = buffer;
+					checkLoaded();
+				};
+			}(key));
+		}
 	}
+
+	AudioOut.prototype.loadSound = function(url, onload, onError){
+		var self = this;
+		var request = new XMLHttpRequest();
+		request.open("GET", url, true);
+		request.responseType = "arraybuffer";
+
+		request.onload = function(){
+			self.ctx.decodeAudioData(request.response, function(buffer){
+				onload(buffer);
+			}, function(){
+				console.log("Error while loading resource or decoding audio!");
+				if(onError){
+					onError(data);
+				}
+			});
+		};
+
+		request.send();
+	};
+
+	AudioOut.prototype.playSound = function(name){
+		if(this.sounds[name] && this.sounds[name].audio){
+			var source = this.ctx.createBufferSource();
+			source.buffer = this.sounds[name].audio;
+			source.connect(this.ctx.destination);
+			source.start(0);
+		}
+	};
 
 	function Game(){
 		var self = this;
 		var running = false;
 
 		this.canvas = new GameCanv();
-		this.controls = new GameControls();
-		this.player = new Player(this.canvas, this.controls);
-		var level = new GameLevel(1, this.canvas);
-		this.timer = new Timer();
 		this.audio = new AudioOut();
+		this.controls = new GameControls();
+		this.player = new Player(this.canvas, this.controls, this.audio);
+		var level = new GameLevel(1, this.canvas, this.audio);
+		this.timer = new Timer();
 
 
 		PubSub.subscribe("player died", function(data){
@@ -34,6 +90,7 @@
 			}
 			level.start();
 			self.timer.start();
+			self.audio.playSound("theme");
 			running = true;
 			var start = 0;
 			var delay = 10; // 30 miliseconds between
@@ -77,7 +134,7 @@
 		};
 	}
 
-	function GameLevel(lvl, gameCanv){
+	function GameLevel(lvl, gameCanv, audio){
 		var running;
 		var objects = [{
 			x: -20,
@@ -109,7 +166,7 @@
 			this.objects[i] = new Wall(gameCanv, obj.x, obj.y, obj.width, obj.height, startIndex + i, obj.img);
 		}
 
-		var mobMgr = new MobMgr(lvl, gameCanv, gameCanv.height - 100);
+		var mobMgr = new MobMgr(lvl, gameCanv, audio, gameCanv.height - 100);
 
 		this.start = function(){
 			if(running){
@@ -125,7 +182,7 @@
 		};
 	}
 
-	function MobMgr(lvl, canvas, groundLevel){
+	function MobMgr(lvl, canvas, audio, groundLevel){
 		var self = this;
 		var qty = lvl * 3;
 		var interval = 5/lvl * 1000; // In seconds
@@ -136,7 +193,7 @@
 
 		function generateMobs(qty){
 			for(var i=0; i<qty; i++){
-				var mob = new Mob(canvas, canvasWidth*Math.random(), groundLevel - 50, mobStartIndex++);
+				var mob = new Mob(canvas, audio, canvasWidth*Math.random(), groundLevel - 50, mobStartIndex++);
 			}
 		}
 
@@ -307,7 +364,7 @@
 
 	Player.prototype = new CanvObj();
 
-	function Player(gameCanv, controls){
+	function Player(gameCanv, controls, audio){
 		var self = this;
 		var abs = Math.abs;
 		this.canvas = gameCanv;
@@ -358,6 +415,7 @@
 		this.jump = function(){
 			if(this.grounded){
 				this.currentJump = -this.jumpImpulse;
+				audio.playSound("player jumps");
 			}
 			this.grounded = false;
 		};
@@ -370,6 +428,7 @@
 
 		this.die = function(){
 			gameCanv.removeLayer(self.index);
+			audio.playSound("player dies");
 			PubSub.publish("player died");
 		};
 
@@ -423,7 +482,7 @@
 
 	Mob.prototype = new CanvObj();
 
-	function Mob(gameCanv, x, y, index){
+	function Mob(gameCanv, audio, x, y, index){
 		this.x = x;
 		this.y = y;
 		this.index = index;
@@ -444,7 +503,6 @@
 				if(dir === "top"){
 					this.die();
 				} else{
-					console.log("hit player");
 					obj.attack(this.damage);
 				}
 			}
@@ -469,6 +527,7 @@
 
 		this.die = function(){
 			gameCanv.removeLayer(this.index);
+			audio.playSound("mob dies");
 		};
 	}
 
