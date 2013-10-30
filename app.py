@@ -10,5 +10,6 @@ def index(name=None):
 
 if(__name__ == '__main__'):
 	app.debug = True
-	print os.environ.get('IP')
-	app.run(os.environ.get('IP'), int(os.environ.get('PORT')))
+	host = os.environ.get('IP') if os.environ.get('IP') != None else "127.0.0.1"
+	port = os.environ.get('PORT') if os.environ.get('PORT') != None else 5000
+	app.run(host, int(port))
