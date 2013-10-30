@@ -1,5 +1,6 @@
 from flask import Flask
 from flask import render_template
+import os
 
 app = Flask(__name__)
 
@@ -9,4 +10,5 @@ def index(name=None):
 
 if(__name__ == '__main__'):
 	app.debug = True
-	app.run()
+	print os.environ.get('IP')
+	app.run(os.environ.get('IP'), int(os.environ.get('PORT')))
