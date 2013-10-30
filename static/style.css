@@ -2,12 +2,8 @@ body{
 	background: lightgrey;
 }
 .game-field-wrapper{
-	width: 600px;
+	width: 800px;
+	height: 600px;
 	margin: 0 auto;
 	border: 2px solid darkgrey;
-}
-.game-field{
-	width: 600px;
-	height: 450px;
-	background: lightblue;
 }
