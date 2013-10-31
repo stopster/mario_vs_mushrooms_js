@@ -1,3 +1,3 @@
 Game Mario vs. Mushrooms
 =====================
-![Game screenshot](https://github.com/stopster/mario_vs_mushrooms_js/blob/master/screenshots/game1.png)
+![Game screenshot](https://drive.google.com/file/d/0B1_JcRT4VeW0Z1NBYTNhTFk5ckk/edit?usp=sharing)
