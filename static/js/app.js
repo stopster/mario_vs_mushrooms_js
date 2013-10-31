@@ -7,14 +7,14 @@
 	};
 
 	function AudioOut(onload){
-		window.AudioContext = window.AudioContext || window.webkitAudioContext;
-		this.ctx = new AudioContext();
+		w.AudioContext = w.AudioContext || w.webkitAudioContext;
+		this.ctx = new w.AudioContext();
 		this.mainUrl = "/static/sounds/";
 		this.sounds = {
 			"player jumps": { file: "mario_jump.wav"},
 			"player dies": { file: "mario_die.wav" },
 			"mob dies": { file: "enemy_dies.wav" },
-			"theme": {file: "theme.wav" }
+			"theme": {file: "smb1-1.mp3" }
 		};
 
 		var self = this;
@@ -58,26 +58,50 @@
 		request.send();
 	};
 
-	AudioOut.prototype.playSound = function(name){
+	AudioOut.prototype.playSound = function(name, isLooped){
 		if(this.sounds[name] && this.sounds[name].audio){
 			var source = this.ctx.createBufferSource();
 			source.buffer = this.sounds[name].audio;
 			source.connect(this.ctx.destination);
+			source.loop = isLooped? true: false;
 			source.start(0);
+			return source;
 		}
 	};
 
-	function Game(){
+	AudioOut.prototype.stopSound = function(source){
+		if(source){
+			source.disconnect(0);
+		}
+	};
+
+	function Game(onLoad){
 		var self = this;
 		var running = false;
+		var ready = false;
+
+		var checkIfReady = function(){
+			var isReady = self.canvas &&
+				self.audioIsReady &&
+				self.player &&
+				self.canvas &&
+				self.controls &&
+				self.level &&
+				self.timer;
+			if(isReady){
+				onLoad instanceof Function && onLoad(self);
+			}
+		};
 
 		this.canvas = new GameCanv();
-		this.audio = new AudioOut();
+		this.audio = new AudioOut(function(){
+			self.audioIsReady = true;
+			checkIfReady();
+		});
 		this.controls = new GameControls();
 		this.player = new Player(this.canvas, this.controls, this.audio);
-		var level = new GameLevel(1, this.canvas, this.audio);
+		this.level = new GameLevel(1, this.canvas, this.audio);
 		this.timer = new Timer();
-
 
 		PubSub.subscribe("player died", function(data){
 			self.endGame();
@@ -85,12 +109,12 @@
 
 		this.start = function(){
 			// Dont allow the game to add another callback for requestAnimationFrame
-			if(running){
+			if(running || self.finished){
 				return;
 			}
-			level.start();
+			self.level.start();
 			self.timer.start();
-			self.audio.playSound("theme");
+			self.themeAudio = self.audio.playSound("theme", true);
 			running = true;
 			var start = 0;
 			var delay = 10; // 30 miliseconds between
@@ -108,8 +132,13 @@
 
 		this.stop = function(){
 			running = false;
-			level.stop();
+			self.level.stop();
 			self.timer.stop();
+			self.audio.stopSound(self.themeAudio);
+		};
+
+		this.isFinished = function(){
+			return self.finished? true: false;
 		};
 
 		var drawEndGame = function(){
@@ -125,13 +154,17 @@
 		};
 
 		this.endGame = function(){
-			level.stop();
+			self.level.stop();
 			self.timer.stop();
+			self.audio.stopSound(self.themeAudio);
 
 			self.canvas.removeAll();
 			drawEndGame();
 			running = false;
+			self.finished = true;
 		};
+
+		checkIfReady();
 	}
 
 	function GameLevel(lvl, gameCanv, audio){
@@ -649,7 +682,9 @@
 	}
 
 	w.onload = function(){
-		var game;
+		var game = new Game(function(){
+			d.getElementById("new-game").removeAttribute("disabled");
+		});
 		var btnStart = d.getElementById("start-game");
 		var btnStop = d.getElementById("stop-game");
 		var btnNewGame = d.getElementById("new-game");
@@ -663,8 +698,14 @@
 		});
 
 		btnNewGame.addEventListener("click", function(){
-			game = new Game();
-			game.start();
+			if(game.isFinished()){
+				game = new Game(function(){
+					d.getElementById("new-game").removeAttribute("disabled");
+					game.start();
+				});
+			} else{
+				game.start();
+			}
 		});
 	};
 
