@@ -6,6 +6,16 @@
 		}
 	};
 
+	function Counter(){
+		var counter = 0;
+		var $counter = d.getElementById("mob-counter");
+		$counter.innerHTML = counter;
+		PubSub.subscribe("player kill mob", function(){
+			counter++;
+			$counter.innerHTML = counter;
+		});
+	}
+
 	function AudioOut(onload){
 		w.AudioContext = w.AudioContext || w.webkitAudioContext;
 		this.ctx = new w.AudioContext();
@@ -102,6 +112,7 @@
 		this.player = new Player(this.canvas, this.controls, this.audio);
 		this.level = new GameLevel(1, this.canvas, this.audio);
 		this.timer = new Timer();
+		this.counter = new Counter();
 
 		PubSub.subscribe("player died", function(data){
 			self.endGame();
@@ -294,9 +305,7 @@
 					dir = "bottom";
 				}
 			}
-			// By doing ~~ we getting Math.floor();
 			obj1.collideWith(obj2, dir, dx, dy);
-			// By doing ~x + 1 we get -1*Math.floor() + 1;
 			obj2.collideWith(obj1, oppositeDirs[dir], -dx, -dy);
 		};
 		this.checkAllCollisions = function(){
@@ -498,6 +507,10 @@
 			this.barriers[dir] = obj;
 			this.x -= (dir === "left" || dir === "right")? dx: 0;
 			this.y -= (dir === "top" || dir === "bottom")? dy: 0;
+
+			if(obj instanceof Mob){
+				PubSub.publish("player kill mob");
+			}
 		};
 
 		var lastLook = this.imgRight;
