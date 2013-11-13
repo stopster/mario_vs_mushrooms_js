@@ -414,19 +414,19 @@
 		this.controls = controls;
 
 		this.x = 20;
-		this.y = 100;
+		this.y = 150;
 		this.index = 10;
 
 		gameCanv.addLayer(this.index, this, true);
 
-		this.width = 38;
-		this.height = 50;
-		this.imgLeft = d.getElementById("mario-left");
-		this.imgRight = d.getElementById("mario-right");
+		this.width = 78;
+		this.height = 96;
+		this.sprite = d.getElementById("player-sprite");
 
 		this.runDir = 0;
 		this.grounded = false;
 		this.speed = 6;
+		this.stepDist = 10;
 		this.jumpImpulse = 2.3;
 		this.currentJump = 0;
 		this.gravity = 0.1;
@@ -513,16 +513,19 @@
 			}
 		};
 
-		var lastLook = this.imgRight;
+		var getAnimFrame = function(){
+			var animFrameStartPoint = {right: 0, left: 78};
+			var lastDir = "right";
+			return function(runDir){
+				var frameCoords = {x: 0, y:0};
+				return frameCoords;
+			};
+		}();
+
 		this.draw = function(){
-			var img;
-			if(this.runDir === 0){
-				img = lastLook;
-			} else{
-				img = this.runDir > 0? this.imgRight: this.imgLeft;
-			}
-			lastLook = img;
-			this.ctx.drawImage(img, this.x, this.y);
+			var frame = getAnimFrame(this.runDir);
+			console.log(frame);
+			this.ctx.drawImage(this.sprite, frame.x, frame.y, this.width, this.height, this.x, this.y, this.width, this.height);
 		};
 	}
 

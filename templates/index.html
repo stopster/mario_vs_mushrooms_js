@@ -6,10 +6,11 @@
 			<meta charset="utf-8">
 			<meta http-equiv="X-UA-Compatible" content="IE=edge">
 			<title>My Super Mario</title>
+			<link href='http://fonts.googleapis.com/css?family=Black+Ops+One' rel='stylesheet' type='text/css'>
 			<link rel="stylesheet" href="{{STATIC_URL}}style.css">
 	</head>
 	<body>
-		<h2>My Super Mario</h2>
+		<h1>My Super Mario</h1>
 		<button id="new-game" disabled="disabled">New game</button>
 		<button id="start-game">Resume</button>
 		<button id="stop-game">Pause</button>
@@ -21,8 +22,7 @@
 		</section>
 		<section class="hidden images">
 			<img src="{{STATIC_URL}}img/grass_sample.png" id="grass-sample"/>
-			<img src="{{STATIC_URL}}img/mario-left.png" id="mario-left"/>
-			<img src="{{STATIC_URL}}img/mario-right.png" id="mario-right"/>
+			<img src="{{STATIC_URL}}img/player-sprite.png" id="player-sprite"/>
 			<img src="{{STATIC_URL}}img/zombie.png" id="zombie"/>
 		</section>
 		<script type="text/javascript" src="{{STATIC_URL}}js/pubsub.js"></script>	

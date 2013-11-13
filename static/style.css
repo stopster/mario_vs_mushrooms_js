@@ -1,5 +1,7 @@
 body{
 	background: lightgrey;
+	font-family: 'Black Ops One', cursive;
+	font-size: 1.5em;
 }
 .game-field-wrapper{
 	width: 800px;
