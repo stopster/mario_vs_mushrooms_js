@@ -125,14 +125,14 @@
 			}
 			self.level.start();
 			self.timer.start();
-			self.themeAudio = self.audio.playSound("theme", true);
+			// self.themeAudio = self.audio.playSound("theme", true);
 			running = true;
 			var start = 0;
 			var delay = 10; // 30 miliseconds between
 			window.requestAnimationFrame(function gameLoop(time){
 				if((time - start) > delay){
 					start = time;
-					self.canvas.update();
+					self.canvas.update(time);
 				}
 				
 				if(running){
@@ -228,7 +228,7 @@
 
 	function MobMgr(lvl, canvas, audio, groundLevel){
 		var self = this;
-		var qty = lvl * 3;
+		var qty = lvl * 4;
 		var interval = 5/lvl * 1000; // In seconds
 		var timer;
 		var mobStartIndex = 20;
@@ -365,7 +365,7 @@
 			ctx.clearRect(0, 0, canvas.width, canvas.height);
 		};
 
-		this.update = function(){
+		this.update = function(time){
 			this.clear();
 
 			collisionMgr.checkAllCollisions();
@@ -375,10 +375,66 @@
 				if(layer === undefined){
 					continue;
 				}
-				layer.update(canvas, ctx);
+				layer.update(canvas, ctx, time);
 			}
 		};
 
+	}
+
+	SpriteAnimation.prototype.start = function(frameId){
+		if(this.running){
+			return true;
+		}
+		this.currentFrameId = frameId? frameId: 0;
+		this.lastUpdated = 0;
+		this.running = true;
+	};
+
+	SpriteAnimation.prototype.stop = function(){
+		this.running = false;
+	};
+
+	SpriteAnimation.prototype.update = function(time, ctx, x, y, width, height){
+		if(this.running){
+			if(time - this.lastUpdated > this.interval){
+				this.next();
+				this.lastUpdated = time;
+			}
+			var frame = this.frames[this.currentFrameId];
+			ctx.drawImage(this.sprite, frame[0], frame[1], width, height, x, y, width, height);
+		}
+	};
+
+	function SpriteAnimation(config){
+		this.frames = config.frames;
+		this.framesQty = this.frames.length;
+		this.interval = config.time / this.frames.length;
+		this.sprite = config.sprite;
+		if(config.circle){
+			this.next = function(){
+				if(this.currentFrameId == this.framesQty - 1){
+					this.currentFrameId = 0;
+				} else{
+					this.currentFrameId += 1;
+				}
+
+				return this.currentFrameId;
+			};
+		} else if(config.linear){
+			this.next = function(){
+				var delta = 1;
+				return function(){
+					if(this.currentFrameId === 0){
+						delta = 1;
+					} else if(this.currentFrameId === this.framesQty - 1){
+						delta = -1;
+					}
+					this.currentFrameId += delta;
+					console.log("delta", delta,this.currentFrameId);
+					return this.currentFrameId;
+				};
+			}();
+		}
 	}
 
 	function CanvObj(gameCanv){
@@ -425,11 +481,10 @@
 
 		this.runDir = 0;
 		this.grounded = false;
-		this.speed = 6;
-		this.stepDist = 10;
-		this.jumpImpulse = 2.3;
+		this.speed = 4.5;
+		this.jumpImpulse = 3;
 		this.currentJump = 0;
-		this.gravity = 0.1;
+		this.gravity = 0.15;
 		this.barriers = { left: null, top: null, right: null, bottom: null };
 
 		this.controls.addListener(["left", "right"], function(key, action){
@@ -446,12 +501,33 @@
 			}
 		});
 
+		// setup animation
+		this.runRightAnimation = new SpriteAnimation({
+			sprite: this.sprite,
+			frames: [[0, 96], [0, 192], [0, 288]],
+			linear: true,
+			time: 400
+		});
+		this.runLeftAnimation = new SpriteAnimation({
+			sprite: this.sprite,
+			frames: [[78, 96], [78, 192], [78, 288]],
+			linear: true,
+			time: 400
+		});
+
 		this.run = function(dir){
 			this.runDir = (dir === "left")? -1: +1;
+			if(this.runDir > 0){
+				this.runAnimation = this.runRightAnimation;
+			} else{
+				this.runAnimation = this.runLeftAnimation;
+			}
+			this.runAnimation.start();
 		};
 
 		this.stop = function(){
 			this.runDir = 0;
+			this.runAnimation.stop();
 		};
 
 		this.jump = function(){
@@ -474,12 +550,12 @@
 			PubSub.publish("player died");
 		};
 
-		this.update = function(){
+		this.update = function(canvas, ctx, time){
 			var dx = this.runDir*this.speed;
 			this.x += (dx > 0)?
 				(this.barriers.right === null? dx: 0):
 				(this.barriers.left === null? dx: 0);
-			this.grounded = this.barriers.bottom !== null? this.grounded: false;	
+			this.grounded = this.barriers.bottom !== null? this.grounded: false;
 			if(!this.grounded){
 				var dy = this.currentJump*this.speed;
 				if(dy < 0){
@@ -499,7 +575,7 @@
 				this.y += dy;
 			}
 
-			this.draw();
+			this.draw(time);
 			this.barriers = { left: null, top: null, right: null, bottom: null };
 		};
 
@@ -513,19 +589,16 @@
 			}
 		};
 
-		var getAnimFrame = function(){
-			var animFrameStartPoint = {right: 0, left: 78};
-			var lastDir = "right";
-			return function(runDir){
-				var frameCoords = {x: 0, y:0};
-				return frameCoords;
-			};
-		}();
-
-		this.draw = function(){
-			var frame = getAnimFrame(this.runDir);
-			console.log(frame);
-			this.ctx.drawImage(this.sprite, frame.x, frame.y, this.width, this.height, this.x, this.y, this.width, this.height);
+		this.rightFrame = [0, 0];
+		this.leftFrame = [78, 0];
+		this.lastLookFrame = this.rightFrame;	
+		this.draw = function(time){
+			if(this.runDir === 0 || !this.grounded){
+				this.ctx.drawImage(this.sprite, this.lastLookFrame[0], this.lastLookFrame[1], this.width, this.height, this.x, this.y, this.width, this.height);
+			} else {
+				this.lastLookFrame = this.runDir>0? this.rightFrame: this.leftFrame;
+				this.runAnimation.update(time, this.ctx, this.x, this.y, this.width, this.height);
+			}
 		};
 	}
 
