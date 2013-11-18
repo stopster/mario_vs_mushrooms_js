@@ -464,7 +464,6 @@
 
 	function Player(gameCanv, controls, audio){
 		var self = this;
-		var abs = Math.abs;
 		this.canvas = gameCanv;
 		this.ctx = gameCanv.getCtx();
 		this.controls = controls;
@@ -593,8 +592,10 @@
 		this.leftFrame = [78, 0];
 		this.lastLookFrame = this.rightFrame;	
 		this.draw = function(time){
-			if(this.runDir === 0 || !this.grounded){
+			if(this.runDir === 0 && this.grounded){
 				this.ctx.drawImage(this.sprite, this.lastLookFrame[0], this.lastLookFrame[1], this.width, this.height, this.x, this.y, this.width, this.height);
+			} else if(!this.grounded){
+                this.ctx.drawImage(this.sprite, this.lastLookFrame[0], 192, this.width, this.height, this.x, this.y, this.width, this.height);
 			} else {
 				this.lastLookFrame = this.runDir>0? this.rightFrame: this.leftFrame;
 				this.runAnimation.update(time, this.ctx, this.x, this.y, this.width, this.height);
